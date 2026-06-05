@@ -997,3 +997,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.AudioSystem = AudioEngine;
+document.getElementById('playMusicBtn').addEventListener('click', function() {
+    audio.play();
+});
