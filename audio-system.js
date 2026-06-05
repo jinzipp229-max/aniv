@@ -3,7 +3,7 @@
    romantic-flower website
    =============================================================
    Place music at:  music/song1.mp3   etc.
-   Place covers at: assets/music-cover/song1.png  etc.
+   Place covers at: song1.png  etc.
    ============================================================= */
 
 'use strict';
