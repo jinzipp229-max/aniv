@@ -16,7 +16,7 @@ const playlist = [
     id:        'song1',
     title:     'Sampai Jadi Debu',
     artist:    'Banda Neira',
-    file:      'music/song1.mp3',
+    file:      'song1.mp3',
     cover:     'assets/music-cover/song1.png',
     startTime: 0,       // seconds — where playback begins
     endTime:   null,    // seconds — where it ends/loops (null = full track)
