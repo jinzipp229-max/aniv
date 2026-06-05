@@ -651,9 +651,6 @@
       <!-- Fallback tap notice -->
       <div class="cp-fallback cp-hidden">
         <span>♪ Tap to play music</span>
-        <audio controls autoplay loop>
-  <source src="song1.mp3" type="audio/mpeg">
-</audio>
       </div>
     </div><button id="cp-toggle-btn" aria-label="Toggle music player" aria-expanded="true" class="cp-is-playing cp-panel-open">
       <!-- Musical note icon -->
@@ -664,4 +661,9 @@
       <svg class="cp-toggle-icon cp-icon-close" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>
       </svg>
+      <!-- Tambahkan ini tepat sebelum </body> -->
+<audio id="bg-music" controls autoplay loop style="position: fixed; bottom: 10px; left: 10px; width: 200px; opacity: 0.5;">
+  <source src="song1.mp3" type="audio/mpeg">
+  Browser Anda tidak mendukung pemutar audio.
+</audio>
     </button></body></html>
