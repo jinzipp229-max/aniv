@@ -559,13 +559,13 @@
   
 
   <!-- Scripts — tier already set in <head>; engine files load in dependency order -->
-  <script src=".//render-loop.jsd"></script>
-  <script src=".//particle-pool.js"></script>
-  <script src=".//performance-manager.js"></script>
-  <script src=".//canvas-flower-engine.js"></script>
-  <script src=".//particles.js"></script>
-  <script src=".//audio-system.js"></script>
-  <script src=".//main.js"></script>
+ <script src="./render-loop.jsd"></script>  <!-- Note: .jsd extension? -->
+<script src="./particle-pool.js"></script>
+<script src="./performance-manager.js"></script>
+<script src="./canvas-flower-engine.js"></script>
+<script src="./particles.js"></script>
+<script src="./audio-system.js"></script>  <!-- Audio system loads here -->
+<script src="./main.js"></script>
 
 
 <div id="cp-root" role="region" aria-label="Music Player" class="cp-playing cp-visible">
