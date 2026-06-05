@@ -996,7 +996,4 @@ document.addEventListener('DOMContentLoaded', () => {
   initSectionAtmosphere();
 });
 
-window.AudioSystem = AudioEngine;
-document.getElementById('playMusicBtn').addEventListener('click', function() {
-    audio.play();
-});
+
