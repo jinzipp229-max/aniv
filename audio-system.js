@@ -25,8 +25,8 @@ const playlist = [
     loop:      true,
     fadeIn:    2.5,
     fadeOut:   2.0
-  },
-  
+  }
+];
 
 /* Section → track id map (leave empty to disable) */
 const SECTION_MUSIC_MAP = {
@@ -51,6 +51,8 @@ const AudioEngine = (() => {
   let fadeRaf       = null;
   let loopRaf       = null;
   let bufferCache   = {};
+  let _playStartCtxTime = 0;
+  let _playStartOffset  = 0;
 
   function initContext() {
     if (audioCtx) return;
@@ -129,31 +131,68 @@ const AudioEngine = (() => {
     const loop  = cfg.loopStart != null ? cfg.loopStart : start;
     const dur   = cfg.endTime ? cfg.endTime - start : undefined;
     const ctxNow = audioCtx.currentTime;
-    if (dur !== undefined) { src.start(0, start, dur); }
-    else {
+    
+    // Record timing for progress tracking
+    _playStartCtxTime = ctxNow;
+    _playStartOffset = start;
+    
+    if (dur !== undefined) { 
+      src.start(0, start, dur); 
+    } else {
       src.start(0, start);
-      if (cfg.loop) { src.loop = true; src.loopStart = loop; src.loopEnd = buf.duration; }
+      if (cfg.loop) { 
+        src.loop = true; 
+        src.loopStart = loop; 
+        src.loopEnd = buf.duration; 
+      }
     }
     currentSource = src;
     if (cfg.endTime && cfg.loop) startLoopWatch(cfg, ctxNow, start);
   }
 
   async function playTrack(idx, crossfade) {
+    // Playlist validation
+    if (!playlist || playlist.length === 0) {
+      console.warn('[AudioEngine] Cannot play - playlist is empty');
+      return;
+    }
+    
     const cfg = playlist[idx];
     if (!cfg || !autoplayReady) return;
     currentIdx    = idx;
     currentConfig = cfg;
     const buf = await preloadTrack(cfg);
-    if (!buf) { UI.showFallback(); return; }
+    if (!buf) { 
+      if (UI.showFallback) UI.showFallback(); 
+      return; 
+    }
     currentBuffer = buf;
-    const go = () => { playSegment(buf, cfg); fadeTo(cfg.volume, cfg.fadeIn); isPlaying = true; isUserPaused = false; UI.sync(true, idx); };
-    if (crossfade && isPlaying) { fadeTo(0, cfg.fadeOut, () => { stopSource(); go(); }); }
-    else { stopSource(); go(); }
+    const go = () => { 
+      playSegment(buf, cfg); 
+      fadeTo(cfg.volume, cfg.fadeIn); 
+      isPlaying = true; 
+      isUserPaused = false; 
+      if (UI.sync) UI.sync(true, idx); 
+    };
+    if (crossfade && isPlaying) { 
+      fadeTo(0, cfg.fadeOut, () => { 
+        stopSource(); 
+        go(); 
+      }); 
+    } else { 
+      stopSource(); 
+      go(); 
+    }
   }
 
   function pause() {
     if (!isPlaying) return;
-    fadeTo(0, currentConfig ? currentConfig.fadeOut : 1.5, () => { stopSource(); isPlaying = false; isUserPaused = true; UI.sync(false, currentIdx); });
+    fadeTo(0, currentConfig ? currentConfig.fadeOut : 1.5, () => { 
+      stopSource(); 
+      isPlaying = false; 
+      isUserPaused = true; 
+      if (UI.sync) UI.sync(false, currentIdx); 
+    });
   }
 
   async function resume() {
@@ -163,7 +202,9 @@ const AudioEngine = (() => {
     currentBuffer = buf;
     playSegment(buf, currentConfig);
     fadeTo(currentConfig.volume, currentConfig.fadeIn);
-    isPlaying = true; isUserPaused = false; UI.sync(true, currentIdx);
+    isPlaying = true; 
+    isUserPaused = false; 
+    if (UI.sync) UI.sync(true, currentIdx);
   }
 
   function toggle() { isPlaying ? pause() : resume(); }
@@ -174,26 +215,25 @@ const AudioEngine = (() => {
     if (currentConfig) currentConfig.volume = c;
   }
 
-  function nextTrack() { playTrack((currentIdx + 1) % playlist.length, true); }
-  function prevTrack() { playTrack((currentIdx - 1 + playlist.length) % playlist.length, true); }
-  function switchTo(id, x = true) { const i = playlist.findIndex(t => t.id === id); if (i >= 0 && i !== currentIdx) playTrack(i, x); }
+  function nextTrack() { 
+    if (!playlist || playlist.length === 0) return;
+    playTrack((currentIdx + 1) % playlist.length, true); 
+  }
+  
+  function prevTrack() { 
+    if (!playlist || playlist.length === 0) return;
+    playTrack((currentIdx - 1 + playlist.length) % playlist.length, true); 
+  }
+  
+  function switchTo(id, x = true) { 
+    if (!playlist || playlist.length === 0) return;
+    const i = playlist.findIndex(t => t.id === id); 
+    if (i >= 0 && i !== currentIdx) playTrack(i, x); 
+  }
+  
   function cinematicFade(dur = 2)   { if (isPlaying) fadeTo(0, dur); }
   function cinematicFadeIn(dur = 2) { if (isPlaying && currentConfig) fadeTo(currentConfig.volume, dur); }
   function getAnalyser() { return analyserNode; }
-
-  async function unlock() {
-    if (autoplayReady) return;
-    initContext();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    autoplayReady = true;
-    preloadTrack(playlist[0]);
-    playTrack(0, false);
-  }
-
-  /* Progress polling */
-  let _playStartCtxTime = 0;
-  let _playStartOffset  = 0;
-  const _origPlaySeg = playSegment;
 
   function getProgress() {
     if (!isPlaying || !currentConfig || !audioCtx) return { current: 0, duration: 0, pct: 0 };
@@ -206,21 +246,37 @@ const AudioEngine = (() => {
     return { current, duration: end, pct: segLen > 0 ? (looped / segLen) : 0 };
   }
 
-  /* Wrap playSegment to record timing */
-  const _realPlaySeg = playSegment;
-  function playSegmentTracked(buf, cfg) {
-    _realPlaySeg(buf, cfg);
-    _playStartCtxTime = audioCtx.currentTime;
-    _playStartOffset  = cfg.startTime || 0;
+  async function unlock() {
+    if (autoplayReady) return;
+    initContext();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    autoplayReady = true;
+    
+    if (playlist && playlist.length > 0) {
+      preloadTrack(playlist[0]);
+      playTrack(0, false);
+    } else {
+      console.warn('[AudioEngine] Cannot unlock - playlist is empty');
+    }
   }
-  // reassign reference used internally
-  // (closure captured _realPlaySeg so this is fine)
 
-  return { unlock, playTrack, pause, resume, toggle, nextTrack, prevTrack, switchTo, setVolume,
-           cinematicFade, cinematicFadeIn, getAnalyser, getProgress,
-           getState: () => ({ isPlaying, isUserPaused, currentIdx }) };
+  return { 
+    unlock, 
+    playTrack, 
+    pause, 
+    resume, 
+    toggle, 
+    nextTrack, 
+    prevTrack, 
+    switchTo, 
+    setVolume,
+    cinematicFade, 
+    cinematicFadeIn, 
+    getAnalyser, 
+    getProgress,
+    getState: () => ({ isPlaying, isUserPaused, currentIdx }) 
+  };
 })();
-
 
 /* ─────────────────────────────────────────────
    3. PREMIUM UI MODULE
@@ -238,7 +294,29 @@ const UI = (() => {
   let isMinimized = true;
 
   /* ── Format seconds → m:ss ── */
-  const fmt = s => { const m = Math.floor(s/60); return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}` };
+  const fmt = s => { 
+    if (isNaN(s)) return '0:00';
+    const m = Math.floor(s/60); 
+    return `${m}:${String(Math.floor(s%60)).padStart(2,'0')}`; 
+  };
+
+  /* ── Add roundRect polyfill for visualizer ── */
+  if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+      if (w < 2 * r) r = w / 2;
+      if (h < 2 * r) r = h / 2;
+      this.moveTo(x+r, y);
+      this.lineTo(x+w-r, y);
+      this.quadraticCurveTo(x+w, y, x+w, y+r);
+      this.lineTo(x+w, y+h-r);
+      this.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+      this.lineTo(x+r, y+h);
+      this.quadraticCurveTo(x, y+h, x, y+h-r);
+      this.lineTo(x, y+r);
+      this.quadraticCurveTo(x, y, x+r, y);
+      return this;
+    };
+  }
 
   /* ── Build DOM ── */
   function build() {
@@ -246,7 +324,6 @@ const UI = (() => {
 
     root = document.createElement('div');
     root.id = 'cp-root';
-    /* Panel starts hidden — no cp-minimized class needed */
     root.setAttribute('role', 'region');
     root.setAttribute('aria-label', 'Music Player');
 
@@ -339,27 +416,19 @@ const UI = (() => {
     document.body.appendChild(root);
 
     /* Build floating toggle button */
-    toggleBtn = document.createElement('button');
+    const toggleBtn = document.createElement('button');
     toggleBtn.id = 'cp-toggle-btn';
     toggleBtn.setAttribute('aria-label', 'Toggle music player');
     toggleBtn.setAttribute('aria-expanded', 'false');
     toggleBtn.innerHTML = `
-      <!-- Musical note icon -->
       <svg class="cp-toggle-icon cp-icon-note" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
       </svg>
-      <!-- Close X icon -->
       <svg class="cp-toggle-icon cp-icon-close" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
       </svg>
     `;
-    toggleBtn.addEventListener('click', () => {
-      togglePanel();
-      /* First click also unlocks audio */
-      AudioEngine.unlock();
-    });
-    document.body.appendChild(toggleBtn);
-
+    
     /* Cache elements */
     coverImg     = root.querySelector('.cp-cover');
     coverBg      = root.querySelector('.cp-bg-img');
@@ -395,8 +464,10 @@ const UI = (() => {
       const r = root.getBoundingClientRect();
       mouseX = (e.clientX - r.left) / r.width;
       mouseY = (e.clientY - r.top)  / r.height;
-      root.querySelector('.cp-light-orb').style.transform =
-        `translate(${mouseX * 100}%, ${mouseY * 100}%) translate(-50%, -50%)`;
+      const orb = root.querySelector('.cp-light-orb');
+      if (orb) {
+        orb.style.transform = `translate(${mouseX * 100}%, ${mouseY * 100}%) translate(-50%, -50%)`;
+      }
     });
 
     /* Minimise button */
@@ -404,6 +475,16 @@ const UI = (() => {
       e.stopPropagation();
       closePanel();
     });
+
+    /* Toggle button panel control */
+    toggleBtn.addEventListener('click', () => {
+      togglePanel();
+      AudioEngine.unlock();
+    });
+    document.body.appendChild(toggleBtn);
+    
+    // Store toggleBtn for panel functions
+    window._cpToggleBtn = toggleBtn;
 
     startProgressLoop();
     startVizLoop();
@@ -415,10 +496,10 @@ const UI = (() => {
       progressRaf = requestAnimationFrame(tick);
       const { current, duration, pct } = AudioEngine.getProgress();
       const p = Math.min(pct * 100, 100);
-      progressFill.style.width  = p + '%';
-      progressDot.style.left    = p + '%';
+      if (progressFill) progressFill.style.width = p + '%';
+      if (progressDot) progressDot.style.left = p + '%';
       if (timeEl) timeEl.textContent = fmt(current);
-      if (durEl)  durEl.textContent  = fmt(duration);
+      if (durEl) durEl.textContent = fmt(duration);
     }
     tick();
   }
@@ -433,6 +514,7 @@ const UI = (() => {
 
     function draw() {
       vizRaf = requestAnimationFrame(draw);
+      if (!analyser) return;
       analyser.getByteFrequencyData(data);
       vizCtx.clearRect(0, 0, W, H);
       const bw = W / bars - 1.5;
@@ -455,28 +537,32 @@ const UI = (() => {
   /* ── Load cover image into player ── */
   function loadCover(src) {
     if (!src) {
-      coverImg.src = '';
-      coverBg.src  = '';
+      if (coverImg) coverImg.src = '';
+      if (coverBg) coverBg.src = '';
       return;
     }
-    coverImg.src = src;
-    coverBg.src  = src;
+    if (coverImg) coverImg.src = src;
+    if (coverBg) coverBg.src = src;
   }
 
   /* ── Public: sync state to a track index ── */
   function sync(playing, idx) {
+    if (!playBtn) return;
     /* Play/pause icons */
-    playBtn.querySelector('.cp-icon-play').classList.toggle('cp-hidden', playing);
-    playBtn.querySelector('.cp-icon-pause').classList.toggle('cp-hidden', !playing);
-    root.classList.toggle('cp-playing', playing);
+    const playIcon = playBtn.querySelector('.cp-icon-play');
+    const pauseIcon = playBtn.querySelector('.cp-icon-pause');
+    if (playIcon) playIcon.classList.toggle('cp-hidden', playing);
+    if (pauseIcon) pauseIcon.classList.toggle('cp-hidden', !playing);
+    if (root) root.classList.toggle('cp-playing', playing);
     /* Update toggle button playing state */
+    const toggleBtn = window._cpToggleBtn;
     if (toggleBtn) toggleBtn.classList.toggle('cp-is-playing', playing);
 
     /* Track metadata */
     if (idx >= 0 && idx < playlist.length) {
       const t = playlist[idx];
-      titleEl.textContent  = t.title  || 'Unknown';
-      artistEl.textContent = t.artist || '';
+      if (titleEl) titleEl.textContent = t.title || 'Unknown';
+      if (artistEl) artistEl.textContent = t.artist || '';
       loadCover(t.cover || '');
       /* Update duration display immediately */
       if (durEl && t.endTime) durEl.textContent = fmt(t.endTime - (t.startTime || 0));
@@ -484,11 +570,13 @@ const UI = (() => {
   }
 
   function showFallback() {
-    fallbackEl.classList.remove('cp-hidden');
-    fallbackEl.addEventListener('click', () => {
-      AudioEngine.unlock();
-      fallbackEl.classList.add('cp-hidden');
-    }, { once: true });
+    if (fallbackEl) {
+      fallbackEl.classList.remove('cp-hidden');
+      fallbackEl.addEventListener('click', () => {
+        AudioEngine.unlock();
+        fallbackEl.classList.add('cp-hidden');
+      }, { once: true });
+    }
   }
 
   /* ── Inject all CSS ── */
@@ -567,7 +655,6 @@ const UI = (() => {
   transition: transform 0.35s cubic-bezier(.23,1,.32,1), opacity 0.2s ease;
   position: absolute;
 }
-.cp-toggle-icon.cp-icon-note  { }
 .cp-toggle-icon.cp-icon-close { opacity: 0; transform: rotate(-90deg) scale(0.6); }
 
 #cp-toggle-btn.cp-panel-open .cp-icon-note  { opacity: 0; transform: rotate(90deg) scale(0.6); }
@@ -589,7 +676,6 @@ const UI = (() => {
     0 24px 64px rgba(0,0,0,0.7),
     0 0 0 1px rgba(255,150,180,0.14) inset,
     0 0 40px rgba(120,20,60,0.12);
-  /* Hidden by default */
   opacity: 0;
   transform: translateY(20px) scale(0.96);
   pointer-events: none;
@@ -600,7 +686,6 @@ const UI = (() => {
   transform-origin: bottom right;
 }
 
-/* Revealed state */
 #cp-root.cp-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
@@ -633,14 +718,15 @@ const UI = (() => {
   inset: -1px;
   border-radius: 21px;
   padding: 1px;
-  background: conic-gradient(
-    from var(--cp-angle, 0deg),
+  background: linear-gradient(
+    45deg,
     transparent 0%,
     rgba(255,150,180,0.55) 20%,
     rgba(200,80,130,0.75) 40%,
     rgba(255,180,210,0.45) 60%,
     transparent 80%
   );
+  background-size: 200% 200%;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -651,8 +737,10 @@ const UI = (() => {
   z-index: 1;
   animation: cp-ring-spin 4s linear infinite paused;
 }
-@property --cp-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-@keyframes cp-ring-spin { to { --cp-angle: 360deg; } }
+@keyframes cp-ring-spin {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
 #cp-root.cp-playing .cp-border-ring { opacity: 1; animation-play-state: running; }
 
 /* ── Shine sweep ── */
@@ -910,20 +998,25 @@ const UI = (() => {
 
   /* Panel open/close state */
   let isPanelOpen = false;
-  let toggleBtn   = null;
 
   function openPanel() {
     isPanelOpen = true;
-    root.classList.add('cp-visible');
-    toggleBtn.classList.add('cp-panel-open');
-    toggleBtn.setAttribute('aria-expanded', 'true');
+    if (root) root.classList.add('cp-visible');
+    const toggleBtn = window._cpToggleBtn;
+    if (toggleBtn) {
+      toggleBtn.classList.add('cp-panel-open');
+      toggleBtn.setAttribute('aria-expanded', 'true');
+    }
   }
 
   function closePanel() {
     isPanelOpen = false;
-    root.classList.remove('cp-visible');
-    toggleBtn.classList.remove('cp-panel-open');
-    toggleBtn.setAttribute('aria-expanded', 'false');
+    if (root) root.classList.remove('cp-visible');
+    const toggleBtn = window._cpToggleBtn;
+    if (toggleBtn) {
+      toggleBtn.classList.remove('cp-panel-open');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
   }
 
   function togglePanel() {
@@ -932,8 +1025,6 @@ const UI = (() => {
 
   return { build, sync, showFallback, openPanel, closePanel, togglePanel };
 })();
-
-
 
 /* ─────────────────────────────────────────────
    4. SECTION ATMOSPHERE
@@ -952,7 +1043,6 @@ function initSectionAtmosphere() {
   sections.forEach(s => obs.observe(s));
 }
 
-
 /* ─────────────────────────────────────────────
    5. INTRO SYNC
    ───────────────────────────────────────────── */
@@ -969,7 +1059,6 @@ function patchIntroForAudio() {
   if (gift) gift.addEventListener('click', () => AudioEngine.unlock(), { once: true });
 }
 
-
 /* ─────────────────────────────────────────────
    6. AUTOPLAY GATE
    ───────────────────────────────────────────── */
@@ -985,7 +1074,6 @@ function setupAutoplayGate() {
   EVS.forEach(e => document.addEventListener(e, go, { capture: true }));
 }
 
-
 /* ─────────────────────────────────────────────
    7. BOOT
    ───────────────────────────────────────────── */
@@ -995,5 +1083,3 @@ document.addEventListener('DOMContentLoaded', () => {
   setupAutoplayGate();
   initSectionAtmosphere();
 });
-
-
