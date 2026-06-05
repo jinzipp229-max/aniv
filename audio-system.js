@@ -26,40 +26,12 @@ const playlist = [
     fadeIn:    2.5,
     fadeOut:   2.0
   },
-  {
-    id:        'song2',
-    title:     'Song Title 2',
-    artist:    'Artist Name',
-    file:      'music/song2.mp3',
-    cover:     'assets/music-cover/song2.jpg',
-    startTime: 0,
-    endTime:   null,
-    loopStart: null,
-    volume:    0.75,
-    loop:      true,
-    fadeIn:    2.5,
-    fadeOut:   2.0
-  },
-  {
-    id:        'song3',
-    title:     'Song Title 3',
-    artist:    'Artist Name',
-    file:      'music/song3.mp3',
-    cover:     'assets/music-cover/song3.jpg',
-    startTime: 0,
-    endTime:   null,
-    loopStart: null,
-    volume:    0.75,
-    loop:      true,
-    fadeIn:    2.5,
-    fadeOut:   2.0
-  }
-];
+  
 
 /* Section → track id map (leave empty to disable) */
 const SECTION_MUSIC_MAP = {
   // 'hero':    'song1',
-  // 'finale':  'song3'
+  // 'finale':  'song1'
 };
 
 /* ─────────────────────────────────────────────
