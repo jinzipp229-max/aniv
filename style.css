@@ -514,30 +514,6 @@ section {
    REASONS
    =========================== */
 #reasons { padding: 80px 20px; }
-
-/* REASON INTRO LINE - FIXED */
-.reason-intro {
-    text-align: center;
-    font-family: var(--ff-script);
-    font-size: 1.2rem;
-    color: var(--rose);
-    margin-bottom: 2rem;
-    letter-spacing: 0.5px;
-    font-style: italic;
-    opacity: 0;
-    animation: fade-up 0.8s 0.4s forwards;
-}
-
-/* REASON NUMBER LABEL ON EACH CARD */
-.reason-number {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 3px;
-    color: var(--rose-light);
-    margin-bottom: 0.5rem;
-    font-weight: 300;
-}
-
 .reasons-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -959,4 +935,117 @@ footer {
 
 /* Body right-side face */
 .gift-body::after {
- 
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 0;
+  width: 10px;
+  height: 100%;
+  background: linear-gradient(180deg, #7a1228 0%, #5a0c1e 100%);
+  border-radius: 0 0 4px 0;
+  box-shadow: inset -2px 0 4px rgba(0,0,0,0.4);
+}
+
+/* Body bottom face — ground contact shadow */
+.gift-body::before {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 6px;
+  width: calc(100% - 12px);
+  height: 10px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.35), transparent);
+  border-radius: 0 0 8px 8px;
+  filter: blur(2px);
+}
+
+/* Ribbons — golden with depth */
+.ribbon-h, .ribbon-body-h {
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.5),
+    inset 0 -2px 0 rgba(0,0,0,0.2),
+    0 0 8px rgba(247,200,115,0.4);
+}
+.ribbon-v, .ribbon-body-v {
+  box-shadow:
+    inset 2px 0 0 rgba(255,255,255,0.4),
+    inset -2px 0 0 rgba(0,0,0,0.15),
+    0 0 6px rgba(247,200,115,0.35);
+}
+
+/* Bow — richer, more dimensional */
+.bow-left, .bow-right {
+  background: linear-gradient(135deg, #ffe066 0%, #f7c430 40%, #d4920a 80%, #b87800 100%) !important;
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.5),
+    inset 0 -2px 3px rgba(0,0,0,0.3),
+    0 2px 8px rgba(180,120,0,0.4);
+}
+.bow-center {
+  background: radial-gradient(circle at 35% 35%, #ffe87a, #f0ab10) !important;
+  box-shadow:
+    0 0 10px rgba(247,200,115,0.7),
+    inset 0 1px 2px rgba(255,255,255,0.6);
+}
+
+/* Ground reflection/shadow ellipse */
+#gift-container::after {
+  content: '';
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 18px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.35) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+/* Lid fly — preserve 3D depth during open animation */
+@keyframes lid-fly {
+  0%   { transform: translateY(0) rotateX(0deg) rotateZ(0deg) scale(1); opacity: 1; }
+  35%  { transform: translateY(-100px) rotateX(-15deg) rotateZ(-20deg) scale(1.05); opacity: 1; }
+  70%  { transform: translateY(-220px) rotateX(-30deg) rotateZ(-40deg) scale(0.7); opacity: 0.7; }
+  100% { transform: translateY(-340px) rotateX(-45deg) rotateZ(-55deg) scale(0.3); opacity: 0; }
+}
+
+
+/* ===========================
+   GALLERY IMAGE — img src BULLETPROOF FIX
+   =========================== */
+
+/* Override the flex layout — grid handles sizing now */
+.gallery-card {
+  display: grid !important;
+  grid-template-rows: 1fr auto;
+  position: relative !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  min-height: 220px;
+}
+
+/* Image fills the top grid row */
+.gallery-img {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  object-fit: cover;
+  display: block;
+  grid-row: 1;
+  border-radius: inherit;
+}
+
+/* Caption sits below the image in grid row 2 */
+.gallery-card .gallery-caption {
+  grid-row: 2;
+  position: relative !important;
+  bottom: auto !important;
+  background: rgba(0,0,0,0.45);
+  color: rgba(255,225,235,0.95) !important;
+  padding: 10px 16px;
+  font-family: var(--ff-script);
+  font-size: 1rem;
+  text-align: center;
+}
